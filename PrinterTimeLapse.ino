@@ -9,34 +9,32 @@ October 7, 2019
 
 const int cameraIrPin = 13;
 const int limitSwitchPin = 2;
-volatile int photoNum = 0;
-unsigned long last_interrupt_time = 0;
 Canon Eos7D(cameraIrPin);
+
+int photoNum = 0;
+unsigned long last_millis = 0;
+unsigned long this_millis = 0;
+
+bool lastSwitch = HIGH;
+bool currentSwitch = HIGH;
 
 void setup(){
   Serial.begin(9600);
   //connect the limit switch directly between limitSwitchPin and GND
-  pinMode(limitSwitchPin, INPUT_PULLUP);
-  // call the function whenever the switch is triggered
-  attachInterrupt(digitalPinToInterrupt(limitSwitchPin), limitFun, FALLING);
-//  pinMode(cameraIrPin, OUTPUT);
+  pinMode(limitSwitchPin, INPUT_PULLUP); 
 }
 
 void loop(){
-  delay(1000); // slow it down so it doesn't use much power
-  digitalWrite(cameraIrPin, LOW);
+  currentSwitch = digitalRead(limitSwitchPin);
+  if (currentSwitch < lastSwitch) { // if we see a falling edge
+    this_millis = millis();
+    if (this_millis - last_millis > 200){ // make sure it's not a bounce
+      Eos7D.shotNow(); // take a photo
+      photoNum += 1;      
+    }
+    last_millis = this_millis;
+  }
   Serial.print("Photo Number: ");
   Serial.println(photoNum);
-}
-
-void limitFun(){
-  // when limit switch is triggered, take a photo and increment the photo count
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 200ms, assume it's a bounce and ignore
-  if (interrupt_time - last_interrupt_time > 200){
-    Eos7D.shotNow();
-//    digitalWrite(cameraIrPin, HIGH);
-    photoNum += 1;
-  }
-  last_interrupt_time = interrupt_time;
+  lastSwitch = currentSwitch;
 }
